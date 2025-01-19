@@ -1,7 +1,7 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
-const employeeRoutes = require("./src/routes/employeeRoutes");
+const employeeRoutes = require("./routes/employeeRoutes");
 
 dotenv.config({ path: "./.env" });
 const app = express();
