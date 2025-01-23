@@ -5,12 +5,14 @@ const docusignService = {
   // Send document for signing
   sendEnvelope: async (document, signerEmail, signerName) => {
     try {
-      // Get fresh client with token
       const { apiClient, accountId } = await initializeDocusign();
       
       console.log('Sending document to:', signerEmail);
       
+      // Create envelope definition
       const envelopeDefinition = new docusign.EnvelopeDefinition();
+      envelopeDefinition.emailSubject = 'Please sign your Offer Letter';
+      envelopeDefinition.emailBlurb = 'Please review and sign your offer letter document.';
       
       // Create document
       const doc = new docusign.Document();
@@ -19,53 +21,63 @@ const docusignService = {
       doc.fileExtension = 'pdf';
       doc.documentId = '1';
 
-      // Create signer
-      const signer = new docusign.Signer();
-      signer.email = signerEmail;
-      signer.name = signerName;
-      signer.recipientId = '1';
+      // Create signer with specific positioning
+      const signer = docusign.Signer.constructFromObject({
+        email: signerEmail,
+        name: signerName,
+        recipientId: '1',
+        routingOrder: '1'
+      });
 
-      // Create signHere tab
-      const signHere = new docusign.SignHere();
-      signHere.documentId = '1';
-      signHere.pageNumber = '1';
-      signHere.recipientId = '1';
-      signHere.xPosition = '100';
-      signHere.yPosition = '100';
+      // Create signHere tab with specific positioning
+      const signHere = docusign.SignHere.constructFromObject({
+        anchorString: '/s1/',
+        anchorYOffset: '0',
+        anchorUnits: 'pixels',
+        anchorXOffset: '0'
+      });
+
+      // Create dateHere tab
+      const dateHere = docusign.DateSigned.constructFromObject({
+        anchorString: '/d1/',
+        anchorYOffset: '0',
+        anchorUnits: 'pixels',
+        anchorXOffset: '0'
+      });
 
       // Add tabs to signer
-      const tabs = new docusign.Tabs();
-      tabs.signHereTabs = [signHere];
+      const tabs = docusign.Tabs.constructFromObject({
+        signHereTabs: [signHere],
+        dateSignedTabs: [dateHere]
+      });
       signer.tabs = tabs;
 
-      // Add documents and recipients to envelope
+      // Add to envelope definition
       envelopeDefinition.documents = [doc];
-      envelopeDefinition.recipients = new docusign.Recipients();
-      envelopeDefinition.recipients.signers = [signer];
+      envelopeDefinition.recipients = docusign.Recipients.constructFromObject({
+        signers: [signer]
+      });
       envelopeDefinition.status = 'sent';
 
-      // Configure webhook for status updates
+      // Add webhook notification
       const eventNotification = new docusign.EventNotification();
-      eventNotification.url = process.env.WEBHOOK_URL + '/api/docusign/webhook';
+      eventNotification.url = process.env.WEBHOOK_URL;
       eventNotification.requireAcknowledgment = 'true';
       eventNotification.envelopeEvents = [
         { envelopeEventStatusCode: 'completed' },
-        { envelopeEventStatusCode: 'declined' },
-        { envelopeEventStatusCode: 'signed' }
+        { envelopeEventStatusCode: 'declined' }
       ];
       envelopeDefinition.eventNotification = eventNotification;
 
-      // Send envelope
+      // Create envelope
       const envelopesApi = new docusign.EnvelopesApi(apiClient);
-      console.log('Sending envelope...');
       const results = await envelopesApi.createEnvelope(accountId, {
-        envelopeDefinition
+        envelopeDefinition: envelopeDefinition
       });
-      console.log('Envelope sent:', results);
 
       return results;
     } catch (error) {
-      console.error('DocuSign Error:', error);
+      console.error('DocuSign Error:', error?.response?.data || error);
       throw error;
     }
   }
