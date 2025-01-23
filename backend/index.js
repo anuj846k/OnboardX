@@ -4,6 +4,7 @@ const dotenv = require("dotenv");
 const employeeRoutes = require("./routes/employeeRoutes");
 const documentRoutes = require("./routes/documentRoutes");
 const authRoutes = require("./routes/authRoutes");
+const webhookRoutes = require("./routes/webhookRoutes");
 dotenv.config({ path: "./.env" });
 const app = express();
 const DB = process.env.MONGO_URI;
@@ -13,6 +14,7 @@ app.use(express.json());
 app.use("/api", employeeRoutes);
 app.use("/api", documentRoutes);
 app.use("/api/auth", authRoutes);
+app.use("/api", webhookRoutes);
 app.get("/api", (req, res) => {
   res.send("welcome to onboardX api");
 });

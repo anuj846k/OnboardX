@@ -1,5 +1,7 @@
 const DocumentTemplate = require("../models/documentTemplate");
 const Employee = require("../models/employee");
+const docusignService = require('../docusign/docusignService');
+const { createOfferLetterPDF, createNDADocument } = require('../docusign/templates/documentTemplates');
 
 const documentController = {
   addDocumentTemplate: async (req, res) => {
@@ -31,26 +33,54 @@ const documentController = {
         return res.status(404).json({ message: 'Employee not found' });
       }
 
-      // Add documents and automatically set status to IN_PROGRESS
-      const documentsToAdd = documents.map(doc => ({
-        documentType: doc.type,
-        status: 'SENT',  // Initial status when document is assigned
-        sentAt: new Date()
-      }));
+      console.log('Processing documents for:', employee.personalInfo.email);
 
-      employee.onboardingStatus.documents.push(...documentsToAdd);
-      employee.onboardingStatus.status = 'IN_PROGRESS';  // Auto-update status
-      
-      // Calculate initial progress
-      const totalDocs = employee.onboardingStatus.documents.length;
-      const signedDocs = employee.onboardingStatus.documents.filter(
-        doc => doc.status === 'SIGNED'
-      ).length;
-      employee.onboardingStatus.progress = Math.round((signedDocs / totalDocs) * 100);
+      for (const doc of documents) {
+        let documentPDF;
+        let documentName;
 
+        // Generate appropriate document based on type
+        switch (doc.type) {
+          case 'OFFER_LETTER':
+            documentPDF = await createOfferLetterPDF(employee);
+            documentName = 'Offer Letter.pdf';
+            break;
+          case 'NDA':
+            documentPDF = await createNDADocument(employee);
+            documentName = 'Non-Disclosure Agreement.pdf';
+            break;
+          default:
+            throw new Error(`Unsupported document type: ${doc.type}`);
+        }
+
+        console.log(`Created ${doc.type} document`);
+
+        // Send to DocuSign
+        const result = await docusignService.sendEnvelope(
+          documentPDF,
+          employee.personalInfo.email,
+          `${employee.personalInfo.firstName} ${employee.personalInfo.lastName}`,
+          documentName
+        );
+
+        // Add to employee's documents
+        employee.onboardingStatus.documents.push({
+          documentType: doc.type,
+          status: 'SENT',
+          docusignEnvelopeId: result.envelopeId,
+          sentAt: new Date()
+        });
+      }
+
+      employee.onboardingStatus.status = 'IN_PROGRESS';
       await employee.save();
-      res.status(200).json(employee);
+
+      res.status(200).json({
+        message: 'Documents sent successfully',
+        employee
+      });
     } catch (error) {
+      console.error('Document Assignment Error:', error);
       res.status(500).json({ error: error.message });
     }
   },
