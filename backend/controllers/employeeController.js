@@ -53,7 +53,6 @@ const employeeController = {
       }
 
       if (documentUpdates) {
-        // Update specific document statuses
         documentUpdates.forEach(update => {
           const doc = employee.onboardingStatus.documents.find(
             d => d.documentType === update.documentType
@@ -62,8 +61,22 @@ const employeeController = {
             Object.assign(doc, update);
           }
         });
+
+        // Calculate progress
+        const totalDocs = employee.onboardingStatus.documents.length;
+        const signedDocs = employee.onboardingStatus.documents.filter(
+          doc => doc.status === 'SIGNED'
+        ).length;
+
+        // Update progress percentage
+        employee.onboardingStatus.progress = totalDocs > 0 
+          ? Math.round((signedDocs / totalDocs) * 100) 
+          : 0;
       }
 
+      // Mark as modified to ensure save triggers update
+      employee.markModified('onboardingStatus');
+      
       await employee.save();
       res.status(200).json(employee);
     } catch (error) {

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 const employeeRoutes = require("./routes/employeeRoutes");
 const documentRoutes = require("./routes/documentRoutes");
+const authRoutes = require("./routes/authRoutes");
 dotenv.config({ path: "./.env" });
 const app = express();
 const DB = process.env.MONGO_URI;
@@ -11,7 +12,7 @@ app.use(express.json());
 // Routes
 app.use("/api", employeeRoutes);
 app.use("/api", documentRoutes);
-
+app.use("/api/auth", authRoutes);
 app.get("/api", (req, res) => {
   res.send("welcome to onboardX api");
 });
